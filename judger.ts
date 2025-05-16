@@ -204,7 +204,10 @@ client.on("interactionCreate", async (interaction) => {
                 const imageBuffer = Buffer.from(imageResponse.data, "binary");
                 const imageBase64 = imageBuffer.toString("base64");
                 // Judgerist prompt for images (natural, flamboyant, no score, no critique label)
-                const prompt = `You are the Judgerist, an over-the-top, flamboyant, and brutally honest judge. React to this selfie with a dramatic, witty, and exaggerated response. Be creative, sassy, and never hold back. Do NOT give a score or use the word 'Critique'. Just react naturally as the Judgerist would.`;
+                let prompt = `You are the Judgerist, an over-the-top, flamboyant, and brutally honest judge. React to this selfie with a dramatic, witty, and exaggerated response. Be creative, sassy, and never hold back.\n\nIf the image or context is in Bisaya, Cebuano, Tagalog, or any Philippine dialect, reply in that language or a natural mix.\n\nKeep your reply concise and short, not too long.`;
+                if (targetMessage.content) {
+                    prompt += `\nContext from message: "${targetMessage.content}"`;
+                }
                 const response = await ai.models.generateContent({
                     model: "gemini-2.0-flash-001",
                     contents: [
@@ -241,6 +244,7 @@ client.on("messageCreate", async (message) => {
     let note = message.content.slice("!judge".length).trim();
     let repliedToMessage = null;
     let imageAttachment = null;
+    let contextText = "";
 
     // If the message is a reply, fetch the referenced message
     if (message.reference?.messageId) {
@@ -255,6 +259,10 @@ client.on("messageCreate", async (message) => {
             if (!note && !imageAttachment) {
                 // If no note and no image, use the text content of the replied-to message
                 note = repliedToMessage.content;
+            }
+            // Add previous message content for context if available
+            if (repliedToMessage && repliedToMessage.content) {
+                contextText = repliedToMessage.content;
             }
         } catch (err) {
             // Ignore fetch errors, will prompt below if still no note or image
@@ -279,7 +287,10 @@ client.on("messageCreate", async (message) => {
             const imageBuffer = Buffer.from(imageResponse.data, "binary");
             const imageBase64 = imageBuffer.toString("base64");
             // Judgerist prompt for images
-            const prompt = `You are the Judgerist, an over-the-top, flamboyant, and brutally honest judge. React to this selfie or image with a dramatic, witty, and exaggerated response. Be creative, sassy, and never hold back. Do NOT give a score or use the word 'Critique'. Just react naturally as the Judgerist would.`;
+            let prompt = `You are the Judgerist, an over-the-top, flamboyant, and brutally honest judge. React to this selfie or image with a dramatic, witty, and exaggerated response. Be creative, sassy, and never hold back.\n\nIf the image or context is in Bisaya, Cebuano, Tagalog, or any Philippine dialect, reply in that language or a natural mix.\n\nKeep your reply concise and short, not too long.\n`;
+            if (contextText) {
+                prompt += `\nContext from previous message: "${contextText}"`;
+            }
             const response = await ai.models.generateContent({
                 model: "gemini-2.0-flash-001",
                 contents: [
@@ -298,7 +309,11 @@ client.on("messageCreate", async (message) => {
             await sentMsg.edit(geminiReply || "Judgerist is speechless!");
         } else {
             // Judgerist prompt for text
-            const prompt = `You are the Judgerist, an over-the-top, flamboyant, and brutally honest judge. Respond to the following text with a dramatic, witty, and exaggerated reaction. Be creative, sassy, and never hold back. Do NOT give a score or use the word 'Critique'. Just react naturally as the Judgerist would.\n\nText: "${note}"`;
+            let prompt = `You are the Judgerist, an over-the-top, flamboyant, and brutally honest judge. Respond to the following text with a dramatic, witty, and exaggerated reaction. Be creative, sassy, and never hold back.\n\nIf the text or context is in Bisaya, Cebuano, Tagalog, or any Philippine dialect, reply in that language or a natural mix.\n\nKeep your reply concise and short, not too long.\n`;
+            if (contextText) {
+                prompt += `\nContext from previous message: "${contextText}"`;
+            }
+            prompt += `\nText: "${note}"`;
             const response = await ai.models.generateContent({
                 model: "gemini-2.0-flash-001",
                 contents: [{ text: prompt }],
